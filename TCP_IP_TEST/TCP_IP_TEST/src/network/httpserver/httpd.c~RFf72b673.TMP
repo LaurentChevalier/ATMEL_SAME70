@@ -1,0 +1,519 @@
+/**
+ * \file
+ *
+ * \brief Httpd server.
+ *
+ * Copyright (c) 2013-2015 Atmel Corporation. All rights reserved.
+ *
+ * \asf_license_start
+ *
+ * \page License
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. The name of Atmel may not be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * 4. This software may only be redistributed and used in connection with an
+ *    Atmel microcontroller product.
+ *
+ * THIS SOFTWARE IS PROVIDED BY ATMEL "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE
+ * EXPRESSLY AND SPECIFICALLY DISCLAIMED. IN NO EVENT SHALL ATMEL BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * \asf_license_stop
+ *
+ */
+
+#include "string.h"
+#include "lwip/debug.h"
+#include "lwip/stats.h"
+#include "lwip/tcp.h"
+#include "lwipopts.h"
+#include "httpd.h"
+#include "fs.h"
+
+#define COUNTER_DISP_INDEX      119
+
+/* This is the data for the actual web page. */
+static char indexdata[] =
+"HTTP/1.1 200 OK\r\n\
+Content-type: text/html\r\n\
+\r\n\<html> <head><title>lwIP test page</title></head> <body> Small test page </body> </html>";
+
+
+uint32_t message_count=0;
+
+u8_t   data[100];
+
+/* ECHO protocol states */
+enum echoclient_states
+{
+	ES_NOT_CONNECTED = 0,
+	ES_CONNECTED,
+	ES_RECEIVED,
+	ES_CLOSING,
+};
+
+/* structure to be passed as argument to the tcp callbacks */
+struct echoclient
+{
+	enum echoclient_states state; /* connection status */
+	struct tcp_pcb *pcb;          /* pointer on the current tcp_pcb */
+	struct pbuf *p_tx;            /* pointer on pbuf to be transmitted */
+};
+
+/* Private function prototypes -----------------------------------------------*/
+static err_t tcp_echoclient_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err);
+static void tcp_echoclient_connection_close(struct tcp_pcb *tpcb, struct echoclient * es);
+static err_t tcp_echoclient_poll(void *arg, struct tcp_pcb *tpcb);
+static err_t tcp_echoclient_sent(void *arg, struct tcp_pcb *tpcb, u16_t len);
+static void tcp_echoclient_send(struct tcp_pcb *tpcb, struct echoclient * es);
+
+
+/**
+* This is the callback function that is called
+* when a TCP segment has arrived in the connection.
+*/
+static err_t
+httpd_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
+{
+	char *rq;
+	arg = arg;
+
+	//printf("CB recv %x, %x, %x, %x\n\r", arg, pcb, p, err);
+	if (err != ERR_OK)
+	return err;
+
+	/* If we got a NULL pbuf in p, the remote end has closed
+	the connection. */
+	if (p != NULL) {
+
+		/* The payload pointer in the pbuf contains the data
+		in the TCP segment. */
+		rq = p->payload;
+
+		/* Check if the request was an HTTP "GET /\r\n".
+		or HTTP "GET / HTTP/1.1\r\n" */
+		if (rq[0] == 'G' && rq[1] == 'E' && rq[2] == 'T' &&
+		rq[3] == ' ' && rq[4] == '/' &&
+		((rq[ 5] == '\r' && rq[ 6] == '\n') ||
+		(rq[14] == '\r' && rq[15] == '\n')) ) {
+			/* Send the web page to the remote host. A zero
+			in the last argument means that the data should
+			not be copied into internal buffers. */
+
+			tcp_write(pcb, indexdata, sizeof(indexdata), 0);
+		}
+
+		/* Free the pbuf. */
+		pbuf_free(p);
+	}
+
+	/* Close the connection. */
+	tcp_close(pcb);
+
+	return ERR_OK;
+}
+
+///**
+//* This is the callback function that is called when
+//* a connection has been accepted.
+//*/
+//static err_t
+//httpd_accept(void *arg, struct tcp_pcb *pcb, err_t err)
+//{
+//arg = arg;
+//
+//if (err != ERR_OK)
+//return err;
+//
+///* Set up the function httpd_recv() to be called when data
+//arrives. */
+//tcp_recv(pcb, httpd_recv);
+//return ERR_OK;
+//}
+
+static void client_close(struct tcp_pcb *pcb)
+{
+	tcp_arg(pcb, NULL);
+	tcp_sent(pcb, NULL);
+	tcp_close(pcb);
+
+	printf("\nclient_close(): Closing...\n");
+}
+
+static err_t client_sent(void *arg, struct tcp_pcb *pcb, u16_t len)
+{
+	LWIP_UNUSED_ARG(arg);
+
+	printf("\nclient_sent(): Number of bytes ACK'ed is %d", len);
+
+	client_close(pcb);
+
+	return ERR_OK;
+}
+/**
+* @brief Function called when TCP connection established
+* @param tpcb: pointer on the connection contol block
+* @param err: when connection correctly established err should be ERR_OK
+* @retval err_t: returned error
+*/
+static err_t
+callback_Connected(void *arg, struct tcp_pcb *tpcb, err_t err)
+
+{
+	//
+	//char *string = "Hello!";
+	//LWIP_UNUSED_ARG(arg);
+	//
+	//if (err != ERR_OK)
+	//printf("\nclient_connected(): err argument not set to ERR_OK, but is value is %d\n", err);
+	//
+	//else
+	//{
+	//tcp_sent(pcb, client_sent);
+	//tcp_write(pcb, string, sizeof(string), 1);
+	//}
+	//
+	//return err;
+	
+	struct echoclient *es = NULL;
+	
+	if (err == ERR_OK)
+	{
+		/* allocate structure es to maintain tcp connection informations */
+		es = (struct echoclient *)mem_malloc(sizeof(struct echoclient));
+		
+		if (es != NULL)
+		{
+			es->state = ES_CONNECTED;
+			es->pcb = tpcb;
+			
+			sprintf((char*)data, "sending tcp client message %d", (int)message_count);
+			
+			/* allocate pbuf */
+			es->p_tx = pbuf_alloc(PBUF_TRANSPORT, strlen((char*)data) , PBUF_POOL);
+			
+			if (es->p_tx)
+			{
+				/* copy data to pbuf */
+				pbuf_take(es->p_tx, (char*)data, strlen((char*)data));
+				
+				/* pass newly allocated es structure as argument to tpcb */
+				tcp_arg(tpcb, es);
+				
+				/* initialize LwIP tcp_recv callback function */
+				tcp_recv(tpcb, tcp_echoclient_recv);
+				
+				/* initialize LwIP tcp_sent callback function */
+				tcp_sent(tpcb, tcp_echoclient_sent);
+				
+				/* initialize LwIP tcp_poll callback function */
+				tcp_poll(tpcb, tcp_echoclient_poll, 1);
+				
+				/* send data */
+				tcp_echoclient_send(tpcb,es);
+				
+				return ERR_OK;
+			}
+		}
+		else
+		{
+			/* close connection */
+			tcp_echoclient_connection_close(tpcb, es);
+			
+			/* return memory allocation error */
+			return ERR_MEM;
+		}
+	}
+	else
+	{
+		/* close connection */
+		tcp_echoclient_connection_close(tpcb, es);
+	}
+	return err;
+}
+
+/**
+* @brief tcp_receiv callback
+* @param arg: argument to be passed to receive callback
+* @param tpcb: tcp connection control block
+* @param err: receive error code
+* @retval err_t: retuned error
+*/
+static err_t tcp_echoclient_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
+{
+	struct echoclient *es;
+	err_t ret_err;
+	
+
+	LWIP_ASSERT("arg != NULL",arg != NULL);
+	
+	es = (struct echoclient *)arg;
+	
+	/* if we receive an empty tcp frame from server => close connection */
+	if (p == NULL)
+	{
+		/* remote host closed connection */
+		es->state = ES_CLOSING;
+		if(es->p_tx == NULL)
+		{
+			/* we're done sending, close connection */
+			tcp_echoclient_connection_close(tpcb, es);
+		}
+		else
+		{
+			/* send remaining data*/
+			tcp_echoclient_send(tpcb, es);
+		}
+		ret_err = ERR_OK;
+	}
+	/* else : a non empty frame was received from echo server but for some reason err != ERR_OK */
+	else if(err != ERR_OK)
+	{
+		/* free received pbuf*/
+		if (p != NULL)
+		{
+			pbuf_free(p);
+		}
+		ret_err = err;
+	}
+	else if(es->state == ES_CONNECTED)
+	{
+		/* increment message count */
+		message_count++;
+		
+		/* Acknowledge data reception */
+		tcp_recved(tpcb, p->tot_len);
+		
+		pbuf_free(p);
+		tcp_echoclient_connection_close(tpcb, es);
+		ret_err = ERR_OK;
+	}
+
+	/* data received when connection already closed */
+	else
+	{
+		/* Acknowledge data reception */
+		tcp_recved(tpcb, p->tot_len);
+		
+		/* free pbuf and do nothing */
+		pbuf_free(p);
+		ret_err = ERR_OK;
+	}
+	return ret_err;
+}
+
+/**
+* @brief function used to send data
+* @param  tpcb: tcp control block
+* @param  es: pointer on structure of type echoclient containing info on data
+*             to be sent
+* @retval None
+*/
+static void tcp_echoclient_send(struct tcp_pcb *tpcb, struct echoclient * es)
+{
+	struct pbuf *ptr;
+	err_t wr_err = ERR_OK;
+	
+	while ((wr_err == ERR_OK) &&
+	(es->p_tx != NULL) &&
+	(es->p_tx->len <= tcp_sndbuf(tpcb)))
+	{
+		
+		/* get pointer on pbuf from es structure */
+		ptr = es->p_tx;
+
+		/* enqueue data for transmission */
+		wr_err = tcp_write(tpcb, ptr->payload, ptr->len, 1);
+		
+		if (wr_err == ERR_OK)
+		{
+			/* continue with next pbuf in chain (if any) */
+			es->p_tx = ptr->next;
+			
+			if(es->p_tx != NULL)
+			{
+				/* increment reference count for es->p */
+				pbuf_ref(es->p_tx);
+			}
+			
+			/* free pbuf: will free pbufs up to es->p (because es->p has a reference count > 0) */
+			pbuf_free(ptr);
+		}
+		else if(wr_err == ERR_MEM)
+		{
+			/* we are low on memory, try later, defer to poll */
+			es->p_tx = ptr;
+		}
+		else
+		{
+			/* other problem ?? */
+		}
+	}
+}
+
+/**
+  * @brief  This function implements the tcp_poll callback function
+  * @param  arg: pointer on argument passed to callback
+  * @param  tpcb: tcp connection control block
+  * @retval err_t: error code
+  */
+static err_t tcp_echoclient_poll(void *arg, struct tcp_pcb *tpcb)
+{
+  err_t ret_err;
+  struct echoclient *es;
+
+  es = (struct echoclient*)arg;
+  if (es != NULL)
+  {
+    if (es->p_tx != NULL)
+    {
+      /* there is a remaining pbuf (chain) , try to send data */
+      tcp_echoclient_send(tpcb, es);
+    }
+    else
+    {
+      /* no remaining pbuf (chain)  */
+      if(es->state == ES_CLOSING)
+      {
+        /* close tcp connection */
+        tcp_echoclient_connection_close(tpcb, es);
+      }
+    }
+    ret_err = ERR_OK;
+  }
+  else
+  {
+    /* nothing to be done */
+    tcp_abort(tpcb);
+    ret_err = ERR_ABRT;
+  }
+  return ret_err;
+}
+
+/**
+* @brief  This function implements the tcp_sent LwIP callback (called when ACK
+*         is received from remote host for sent data)
+* @param  arg: pointer on argument passed to callback
+* @param  tcp_pcb: tcp connection control block
+* @param  len: length of data sent
+* @retval err_t: returned error code
+*/
+static err_t tcp_echoclient_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
+{
+	struct echoclient *es;
+
+	LWIP_UNUSED_ARG(len);
+
+	es = (struct echoclient *)arg;
+	
+	if(es->p_tx != NULL)
+	{
+		/* still got pbufs to send */
+		tcp_echoclient_send(tpcb, es);
+	}
+
+	return ERR_OK;
+}
+
+/**
+* @brief This function is used to close the tcp connection with server
+* @param tpcb: tcp connection control block
+* @param es: pointer on echoclient structure
+* @retval None
+*/
+static void tcp_echoclient_connection_close(struct tcp_pcb *tpcb, struct echoclient * es )
+{
+	/* remove callbacks */
+	tcp_recv(tpcb, NULL);
+	tcp_sent(tpcb, NULL);
+	tcp_poll(tpcb, NULL,0);
+
+	if (es != NULL)
+	{
+		mem_free(es);
+	}
+
+	/* close tcp connection */
+	tcp_close(tpcb);
+	
+}
+
+
+/**
+* The initialization function.
+*/
+err_t httpd_init(void)
+{
+	struct ip_addr dest;
+	IP4_ADDR(&dest, 192, 168, 1, 2);
+	struct tcp_pcb *pcb;
+	err_t  err;
+	/* Create a new TCP PCB. */
+	pcb = tcp_new();
+
+	if (pcb == NULL) {
+		printf("F: Fail to create PCB\n\r");
+		return ERR_BUF;
+	}
+	
+	tcp_bind(pcb, IP_ADDR_ANY, 7000); //client port for outcoming connection
+
+	/*--------------------------
+	*	For SERVER MODE ONLY:
+	--Modified by Laurent Chevalier 2017_10_02 */
+
+	///* Bind the PCB to TCP port 80. */
+	//err = tcp_bind(pcb, NULL, 80);
+	//
+	//if (err != ERR_OK) {
+	//printf("E: tcp_bind %x\n\r", err);
+	//return err;
+	//}
+	//
+	///* Change TCP state to LISTEN. */
+	//pcb = tcp_listen(pcb);
+	//
+	//if (pcb == NULL) {
+	//printf("E: tcp_listen\n\r");
+	//return ERR_BUF;
+	//}
+
+	/* Set up httpd_accet() function to be called
+	when a new connection arrives. */
+	//tcp_accept(pcb, httpd_accept);
+	
+	/*--------------------------
+	*	For CLIENT MODE ONLY:
+	-Added by Laurent Chevalier 2017_10_02 */
+
+	/* Connect the PCB to remote host. */
+	err = tcp_connect(pcb, &dest,9991,callback_Connected);
+
+	if (err != ERR_OK) {
+		printf("E: tcp_connect %x\n\r", err);
+		return err;
+
+	}
+	return ERR_OK;
+}
+
+
