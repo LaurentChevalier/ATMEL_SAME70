@@ -57,6 +57,7 @@
 #include "netif/same70_gmac.h"
 #include "sysclk.h"
 #include "conf_eth.h"
+#include "gmac.h"
 
 /** Network interface identifier. */
 #define IFNAME0               'e'
@@ -345,7 +346,11 @@ static void gmac_low_level_init(struct netif *netif)
 	gmac_disable_broadcast(GMAC, false);
 
 	/* Set RX buffer size to 1536. */
-	gmac_set_rx_bufsize(GMAC, 0x18);
+	//gmac_set_rx_bufsize(GMAC, 0x18);
+	gmac_set_rx_bufsize(GMAC, 0xA0); //0xA0: 10240 bytes (1 × 10K jumbo frame/buffer)
+	
+	/* Set Packet Buffer Memory Size*/
+	gmac_set_Buffer_Memory_Size_Select(GMAC, GMAC_DCFGR_RXBMS_FULL);
 
 	/* Clear interrupts */
 	gmac_get_priority_interrupt_status(GMAC, GMAC_QUE_2);
@@ -400,7 +405,7 @@ static void gmac_low_level_init(struct netif *netif)
 		LWIP_DEBUGF(NETIF_DEBUG, ("gmac_low_level_init: set link ERROR!\n"));
 		return;
 	}
-
+	
 	/* Set link up*/
 	netif->flags |= NETIF_FLAG_LINK_UP;
 }

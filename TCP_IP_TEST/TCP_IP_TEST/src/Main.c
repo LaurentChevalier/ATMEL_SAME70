@@ -97,6 +97,7 @@
 #include "ethernet.h"
 #include "httpd.h"
 
+
 #define STRING_EOL    "\r\n"
 #define STRING_HEADER "-- Raw HTTP Basic Example --"STRING_EOL \
 		"-- "BOARD_NAME" --"STRING_EOL \
@@ -135,7 +136,11 @@ int main(void)
 	/* Initialize the SAM system. */
 	sysclk_init();
 	board_init();
-
+    /** USART0 pins definitions,PA9,PA10*/
+    
+    NVIC_ClearPendingIRQ(UART0_IRQn);
+    NVIC_EnableIRQ(UART0_IRQn);
+    uart_enable_interrupt(UART0, UART_IER_RXRDY);
 	/* Configure debug UART */
 	configure_console();
 
@@ -152,7 +157,7 @@ int main(void)
 		return -1;
 	}
 
-	printf("httpd_init_OK");
+	//printf("httpd_init_OK");
 
 	/* Program main loop. */
 	while (1) {

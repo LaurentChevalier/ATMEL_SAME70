@@ -160,6 +160,7 @@ static void ethernet_configure_interface(void)
 {
 	struct ip_addr x_ip_addr, x_net_mask, x_gateway;
 	extern err_t ethernetif_init(struct netif *netif);
+	
 
 #if defined(DHCP_USED)
 		/* DHCP mode. */
@@ -215,7 +216,6 @@ void init_ethernet(void)
 {
 	/* Initialize lwIP. */
 	lwip_init();
-
 	/* Set hw and IP parameters, initialize MAC too. */
 	ethernet_configure_interface();
 

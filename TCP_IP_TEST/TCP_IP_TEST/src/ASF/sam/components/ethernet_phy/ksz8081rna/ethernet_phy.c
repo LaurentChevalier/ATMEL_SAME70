@@ -188,64 +188,67 @@ uint8_t ethernet_phy_set_link(Gmac *p_gmac, uint8_t uc_phy_addr,
 	uint8_t uc_phy_address, uc_speed, uc_fd;
 	uint8_t uc_rc;
 
-	gmac_enable_management(p_gmac, true);
-
-	uc_phy_address = uc_phy_addr;
-
-	uc_rc = gmac_phy_read(p_gmac, uc_phy_address, GMII_BMSR, &ul_stat1);
-	if (uc_rc != GMAC_OK) {
-		/* Disable PHY management and start the GMAC transfer */
-		gmac_enable_management(p_gmac, false);
-
-		return uc_rc;
-	}
-
-	if ((ul_stat1 & GMII_LINK_STATUS) == 0) {
-		/* Disable PHY management and start the GMAC transfer */
-		gmac_enable_management(p_gmac, false);
-
-		return GMAC_INVALID;
-	}
-
-	if (uc_apply_setting_flag == 0) {
-		/* Disable PHY management and start the GMAC transfer */
-		gmac_enable_management(p_gmac, false);
-
-		return uc_rc;
-	}
-
-	/* Read advertisement */
-	uc_rc = gmac_phy_read(p_gmac, uc_phy_address, GMII_PCR1, &ul_stat2);
-	if (uc_rc != GMAC_OK) {
-		/* Disable PHY management and start the GMAC transfer */
-		gmac_enable_management(p_gmac, false);
-
-		return uc_rc;
-	}
-
-	if ((ul_stat1 & GMII_100BASE_TX_FD) && (ul_stat2 & GMII_OMI_100BASE_TX_FD)) {
-		/* Set GMAC for 100BaseTX and Full Duplex */
-		uc_speed = true;
-		uc_fd = true;
-	}
-
-	if ((ul_stat1 & GMII_10BASE_T_FD) && (ul_stat2 & GMII_OMI_10BASE_T_FD)) {
-		/* Set MII for 10BaseT and Full Duplex */
-		uc_speed = false;
-		uc_fd = true;
-	}
-
-	if ((ul_stat1 & GMII_100BASE_TX_HD) && (ul_stat2 & GMII_OMI_100BASE_TX_HD)) {
-		/* Set MII for 100BaseTX and Half Duplex */
-		uc_speed = true;
-		uc_fd = false;
-	}
-
-	if ((ul_stat1 & GMII_10BASE_T_HD) && (ul_stat2 & GMII_OMI_10BASE_T_HD)) {
-		/* Set MII for 10BaseT and Half Duplex */
-		uc_speed = false;
-		uc_fd = false;
-	}
+// 	gmac_enable_management(p_gmac, true);
+// 
+// 	uc_phy_address = uc_phy_addr;
+// 
+// 	uc_rc = gmac_phy_read(p_gmac, uc_phy_address, GMII_BMSR, &ul_stat1);
+// 	if (uc_rc != GMAC_OK) {
+// 		/* Disable PHY management and start the GMAC transfer */
+// 		gmac_enable_management(p_gmac, false);
+// 
+// 		return uc_rc;
+// 	}
+// 
+// 	if ((ul_stat1 & GMII_LINK_STATUS) == 0) {
+// 		/* Disable PHY management and start the GMAC transfer */
+// 		gmac_enable_management(p_gmac, false);
+// 
+// 		return GMAC_INVALID;
+// 	}
+// 
+// 	if (uc_apply_setting_flag == 0) {
+// 		/* Disable PHY management and start the GMAC transfer */
+// 		gmac_enable_management(p_gmac, false);
+// 
+// 		return uc_rc;
+// 	}
+// 
+// 	/* Read advertisement */
+// 	uc_rc = gmac_phy_read(p_gmac, uc_phy_address, GMII_PCR1, &ul_stat2);
+// 	if (uc_rc != GMAC_OK) {
+// 		/* Disable PHY management and start the GMAC transfer */
+// 		gmac_enable_management(p_gmac, false);
+// 
+// 		return uc_rc;
+// 	}
+// 
+// 	if ((ul_stat1 & GMII_100BASE_TX_FD) && (ul_stat2 & GMII_OMI_100BASE_TX_FD)) {
+// 		/* Set GMAC for 100BaseTX and Full Duplex */
+// 		uc_speed = true;
+// 		uc_fd = true;
+// 	}
+// 
+// 	if ((ul_stat1 & GMII_10BASE_T_FD) && (ul_stat2 & GMII_OMI_10BASE_T_FD)) {
+// 		/* Set MII for 10BaseT and Full Duplex */
+// 		uc_speed = false;
+// 		uc_fd = true;
+// 	}
+// 
+// 	if ((ul_stat1 & GMII_100BASE_TX_HD) && (ul_stat2 & GMII_OMI_100BASE_TX_HD)) {
+// 		/* Set MII for 100BaseTX and Half Duplex */
+// 		uc_speed = true;
+// 		uc_fd = false;
+// 	}
+// 
+// 	if ((ul_stat1 & GMII_10BASE_T_HD) && (ul_stat2 & GMII_OMI_10BASE_T_HD)) {
+// 		/* Set MII for 10BaseT and Half Duplex */
+// 		uc_speed = false;
+// 		uc_fd = false;
+// 	}
+	
+	uc_speed = false;
+	uc_fd = true;
 
 	gmac_set_speed(p_gmac, uc_speed);
 	gmac_enable_full_duplex(p_gmac, uc_fd);
@@ -293,89 +296,91 @@ uint8_t ethernet_phy_auto_negotiate(Gmac *p_gmac, uint8_t uc_phy_addr)
 		return uc_rc;
 	}
 
-	/*
-	 * Set the Auto_negotiation Advertisement Register.
-	 * MII advertising for Next page.
-	 * 100BaseTxFD and HD, 10BaseTFD and HD, IEEE 802.3.
-	 */
-	ul_phy_anar = GMII_100TX_FDX | GMII_100TX_HDX | GMII_10_FDX | GMII_10_HDX |
-			GMII_AN_IEEE_802_3;
-	uc_rc = gmac_phy_write(p_gmac, uc_phy_addr, GMII_ANAR, ul_phy_anar);
-	if (uc_rc != GMAC_OK) {
-		gmac_enable_management(p_gmac, false);
-		return uc_rc;
-	}
+// 	/*
+// 	 * Set the Auto_negotiation Advertisement Register.
+// 	 * MII advertising for Next page.
+// 	 * 100BaseTxFD and HD, 10BaseTFD and HD, IEEE 802.3.
+// 	 */
+// 	ul_phy_anar = GMII_100TX_FDX | GMII_100TX_HDX | GMII_10_FDX | GMII_10_HDX |
+// 			GMII_AN_IEEE_802_3;
+// 	uc_rc = gmac_phy_write(p_gmac, uc_phy_addr, GMII_ANAR, ul_phy_anar);
+// 	if (uc_rc != GMAC_OK) {
+// 		gmac_enable_management(p_gmac, false);
+// 		return uc_rc;
+// 	}
+// 
+// 	/* Read & modify control register */
+// 	uc_rc = gmac_phy_read(p_gmac, uc_phy_addr, GMII_BMCR, &ul_value);
+// 	if (uc_rc != GMAC_OK) {
+// 		gmac_enable_management(p_gmac, false);
+// 		return uc_rc;
+// 	}
+// 
+// 	ul_value |= GMII_SPEED_SELECT | GMII_AUTONEG | GMII_DUPLEX_MODE;
+// 	uc_rc = gmac_phy_write(p_gmac, uc_phy_addr, GMII_BMCR, ul_value);
+// 	if (uc_rc != GMAC_OK) {
+// 		gmac_enable_management(p_gmac, false);
+// 		return uc_rc;
+// 	}
+// 
+// 	/* Restart auto negotiation */
+// 	ul_value |= (uint32_t)GMII_RESTART_AUTONEG;
+// 	ul_value &= ~(uint32_t)GMII_ISOLATE;
+// 	uc_rc = gmac_phy_write(p_gmac, uc_phy_addr, GMII_BMCR, ul_value);
+// 	if (uc_rc != GMAC_OK) {
+// 		gmac_enable_management(p_gmac, false);
+// 		return uc_rc;
+// 	}
+// 
+// 	/* Check if auto negotiation is completed */
+// 	while (1) {
+// 		uc_rc = gmac_phy_read(p_gmac, uc_phy_addr, GMII_BMSR, &ul_value);
+// 		if (uc_rc != GMAC_OK) {
+// 			gmac_enable_management(p_gmac, false);
+// 			return uc_rc;
+// 		}
+// 		/* Done successfully */
+// 		if (ul_value & GMII_AUTONEG_COMP) {
+// 			break;
+// 		}
+// 
+// 		/* Timeout check */
+// 		if (ul_retry_max) {
+// 			if (++ul_retry_count >= ul_retry_max) {
+// 				gmac_enable_management(p_gmac, false);
+// 				return GMAC_TIMEOUT;
+// 			}
+// 		}
+// 	}
+// 
+// 	/* Get the auto negotiate link partner base page */
+// 	uc_rc = gmac_phy_read(p_gmac, uc_phy_addr, GMII_ANLPAR, &ul_phy_analpar);
+// 	if (uc_rc != GMAC_OK) {
+// 		gmac_enable_management(p_gmac, false);
+// 		return uc_rc;
+// 	}
 
-	/* Read & modify control register */
-	uc_rc = gmac_phy_read(p_gmac, uc_phy_addr, GMII_BMCR, &ul_value);
-	if (uc_rc != GMAC_OK) {
-		gmac_enable_management(p_gmac, false);
-		return uc_rc;
-	}
 
-	ul_value |= GMII_SPEED_SELECT | GMII_AUTONEG | GMII_DUPLEX_MODE;
-	uc_rc = gmac_phy_write(p_gmac, uc_phy_addr, GMII_BMCR, ul_value);
-	if (uc_rc != GMAC_OK) {
-		gmac_enable_management(p_gmac, false);
-		return uc_rc;
-	}
-
-	/* Restart auto negotiation */
-	ul_value |= (uint32_t)GMII_RESTART_AUTONEG;
-	ul_value &= ~(uint32_t)GMII_ISOLATE;
-	uc_rc = gmac_phy_write(p_gmac, uc_phy_addr, GMII_BMCR, ul_value);
-	if (uc_rc != GMAC_OK) {
-		gmac_enable_management(p_gmac, false);
-		return uc_rc;
-	}
-
-	/* Check if auto negotiation is completed */
-	while (1) {
-		uc_rc = gmac_phy_read(p_gmac, uc_phy_addr, GMII_BMSR, &ul_value);
-		if (uc_rc != GMAC_OK) {
-			gmac_enable_management(p_gmac, false);
-			return uc_rc;
-		}
-		/* Done successfully */
-		if (ul_value & GMII_AUTONEG_COMP) {
-			break;
-		}
-
-		/* Timeout check */
-		if (ul_retry_max) {
-			if (++ul_retry_count >= ul_retry_max) {
-				gmac_enable_management(p_gmac, false);
-				return GMAC_TIMEOUT;
-			}
-		}
-	}
-
-	/* Get the auto negotiate link partner base page */
-	uc_rc = gmac_phy_read(p_gmac, uc_phy_addr, GMII_ANLPAR, &ul_phy_analpar);
-	if (uc_rc != GMAC_OK) {
-		gmac_enable_management(p_gmac, false);
-		return uc_rc;
-	}
-
-
-	/* Set up the GMAC link speed */
-	if ((ul_phy_anar & ul_phy_analpar) & GMII_100TX_FDX) {
-		/* Set MII for 100BaseTX and Full Duplex */
-		uc_speed = true;
-		uc_fd = true;
-	} else if ((ul_phy_anar & ul_phy_analpar) & GMII_10_FDX) {
-		/* Set MII for 10BaseT and Full Duplex */
-		uc_speed = false;
-		uc_fd = true;
-	} else if ((ul_phy_anar & ul_phy_analpar) & GMII_100TX_HDX) {
-		/* Set MII for 100BaseTX and half Duplex */
-		uc_speed = true;
-		uc_fd = false;
-	} else if ((ul_phy_anar & ul_phy_analpar) & GMII_10_HDX) {
-		/* Set MII for 10BaseT and half Duplex */
-		uc_speed = false;
-		uc_fd = false;
-	}
+// 	/* Set up the GMAC link speed */
+// 	if ((ul_phy_anar & ul_phy_analpar) & GMII_100TX_FDX) {
+// 		/* Set MII for 100BaseTX and Full Duplex */
+// 		uc_speed = true;
+// 		uc_fd = true;
+// 	} else if ((ul_phy_anar & ul_phy_analpar) & GMII_10_FDX) {
+// 		/* Set MII for 10BaseT and Full Duplex */
+// 		uc_speed = false;
+// 		uc_fd = true;
+// 	} else if ((ul_phy_anar & ul_phy_analpar) & GMII_100TX_HDX) {
+// 		/* Set MII for 100BaseTX and half Duplex */
+// 		uc_speed = true;
+// 		uc_fd = false;
+// 	} else if ((ul_phy_anar & ul_phy_analpar) & GMII_10_HDX) {
+// 		/* Set MII for 10BaseT and half Duplex */
+// 		uc_speed = false;
+// 		uc_fd = false;
+// 	}
+	uc_speed = false;
+	uc_fd = true;
 
 	gmac_set_speed(p_gmac, uc_speed);
 	gmac_enable_full_duplex(p_gmac, uc_fd);

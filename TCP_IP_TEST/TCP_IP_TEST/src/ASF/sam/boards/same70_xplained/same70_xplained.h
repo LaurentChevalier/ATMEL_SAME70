@@ -49,6 +49,9 @@
 
 #include "compiler.h"
 #include "system_same70.h"
+#include "board.h"
+
+
 
 /*----------------------------------------------------------------------------*/
 /**
@@ -92,13 +95,18 @@
 
 /*----------------------------------------------------------------------------*/
 
-#define CONSOLE_UART               USART1
-#define CONSOLE_UART_ID            ID_USART1
+#define CONSOLE_UART               USART1//USART1//UART0 EVC_Debugger Board
+#define CONSOLE_UART_ID            ID_USART1//ID_USART1//ID_UART0 EVC_Debugger Board
 /** USART1 pins definitions, PA21,PB4. */
 #define USART1_RXD_GPIO   PIO_PA21_IDX
 #define USART1_RXD_FLAGS  IOPORT_MODE_MUX_A
 #define USART1_TXD_GPIO   PIO_PB4_IDX
 #define USART1_TXD_FLAGS  IOPORT_MODE_MUX_D
+
+#define UART0_RXD_GPIO   PIO_PA9_IDX
+#define UART0_RXD_FLAGS  IOPORT_MODE_MUX_A
+#define UART0_TXD_GPIO   PIO_PA10_IDX
+#define UART0_TXD_FLAGS  IOPORT_MODE_MUX_A
 
 /** USART0 pins definitions, PB0,PB1. */
 #define USART0_RXD_GPIO   PIO_PB0_IDX

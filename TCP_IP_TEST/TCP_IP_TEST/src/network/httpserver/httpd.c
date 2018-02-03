@@ -61,50 +61,6 @@ Content-type: text/html\r\n\
 u8_t   data[100];
 
 
-/**
-* This is the callback function that is called
-* when a TCP segment has arrived in the connection.
-*/
-static err_t
-httpd_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
-{
-	char *rq;
-	arg = arg;
-
-	//printf("CB recv %x, %x, %x, %x\n\r", arg, pcb, p, err);
-	if (err != ERR_OK)
-	return err;
-
-	/* If we got a NULL pbuf in p, the remote end has closed
-	the connection. */
-	if (p != NULL) {
-
-		/* The payload pointer in the pbuf contains the data
-		in the TCP segment. */
-		rq = p->payload;
-		printf(rq);
-		/* Check if the request was an HTTP "GET /\r\n".
-		or HTTP "GET / HTTP/1.1\r\n" */
-		if (rq[0] == 'G' && rq[1] == 'E' && rq[2] == 'T' &&
-		rq[3] == ' ' && rq[4] == '/' &&
-		((rq[ 5] == '\r' && rq[ 6] == '\n') ||
-		(rq[14] == '\r' && rq[15] == '\n')) ) {
-			/* Send the web page to the remote host. A zero
-			in the last argument means that the data should
-			not be copied into internal buffers. */
-
-			//tcp_write(pcb, indexdata, sizeof(indexdata), 0);
-		}
-
-		/* Free the pbuf. */
-		pbuf_free(p);
-	}
-
-	/* Close the connection. */
-	tcp_close(pcb);
-
-	return ERR_OK;
-}
 
 ///**
 //* This is the callback function that is called when
@@ -113,16 +69,18 @@ httpd_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
 //static err_t
 //httpd_accept(void *arg, struct tcp_pcb *pcb, err_t err)
 //{
-//arg = arg;
+	//arg = arg;
 //
-//if (err != ERR_OK)
-//return err;
+	//if (err != ERR_OK)
+	//return err;
 //
-///* Set up the function httpd_recv() to be called when data
-//arrives. */
-//tcp_recv(pcb, httpd_recv);
-//return ERR_OK;
+	///* Set up the function httpd_recv() to be called when data
+	//arrives. */
+	//tcp_recv(pcb, httpd_recv);
+	//return ERR_OK;
 //}
+
+
 
 static void client_close(struct tcp_pcb *pcb)
 {
@@ -137,12 +95,63 @@ static err_t client_sent(void *arg, struct tcp_pcb *pcb, u16_t len)
 {
 	LWIP_UNUSED_ARG(arg);
 
-	printf("\nclient_sent(): Number of bytes ACK'ed is %d", len);
+	printf("\nclient_sent(): Number of bytes ACK'ed is %d\n", len);
 
 	//client_close(pcb);
 
+
 	return ERR_OK;
 }
+
+/**
+* This is the callback function that is called
+* when a TCP segment has arrived in the connection.
+*/
+static err_t
+httpd_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
+{
+	char rq[9];//
+	arg = arg;
+	char datas[] = "\nReçu";
+
+	printf("CB recv %x, %x, %x, %x\n\r", arg, pcb, p, err);
+	if (err != ERR_OK)
+	return err;
+
+	/* If we got a NULL pbuf in p, the remote end has closed
+	the connection. */
+	if (p != NULL) {
+
+		/* The payload pointer in the pbuf contains the data
+		in the TCP segment. */
+		//rq = p->payload;
+		strcpy(rq,p->payload);
+		//printf(rq);
+		/* Check if the request was an HTTP "GET /\r\n".
+		or HTTP "GET / HTTP/1.1\r\n" */
+		if (rq[0] == 'G' && rq[1] == 'E' && rq[2] == 'T' &&
+		rq[3] == ' ' && rq[4] == '/' &&
+		((rq[ 5] == '\r' && rq[ 6] == '\n') ||
+		(rq[14] == '\r' && rq[15] == '\n')) ) {
+			/* Send the web page to the remote host. A zero
+			in the last argument means that the data should
+			not be copied into internal buffers. */
+
+			//tcp_write(pcb, indexdata, sizeof(indexdata), 0);
+		}
+		tcp_sent(pcb, client_sent);
+		tcp_write(pcb, rq, sizeof(rq), 1);
+		printf(datas);
+		/* Free the pbuf. */
+		pbuf_free(p);
+	}
+
+	/* Close the connection. */
+	//tcp_close(pcb);
+
+	return ERR_OK;
+}
+
 /**
 * @brief Function called when TCP connection established
 * @param tpcb: pointer on the connection contol block
@@ -163,8 +172,9 @@ callback_Connected(void *arg, struct tcp_pcb *tpcb, err_t err)
 	
 	else
 	{
-	tcp_sent(tpcb, client_sent);
-	tcp_write(tpcb, datas, sizeof(datas), 1);
+		tcp_sent(tpcb, client_sent);
+		tcp_write(tpcb, datas, sizeof(datas), 1);
+		tcp_recv(tpcb, httpd_recv);
 	}
 	
 	return err;
@@ -188,7 +198,7 @@ err_t httpd_init(void)
 	pcb = tcp_new();
 
 	if (pcb == NULL) {
-		printf("F: Fail to create PCB\n\r");
+		//printf("F: Fail to create PCB\n\r");
 		return ERR_BUF;
 	}
 	
@@ -206,16 +216,16 @@ err_t httpd_init(void)
 	//return err;
 	//}
 	//
-	///* Change TCP state to LISTEN. */
+	/* Change TCP state to LISTEN. */
 	//pcb = tcp_listen(pcb);
 	//
 	//if (pcb == NULL) {
 	//printf("E: tcp_listen\n\r");
 	//return ERR_BUF;
 	//}
-
-	/* Set up httpd_accet() function to be called
-	when a new connection arrives. */
+//
+	///* Set up httpd_accet() function to be called
+	//when a new connection arrives. */
 	//tcp_accept(pcb, httpd_accept);
 	
 	/*--------------------------
@@ -223,14 +233,16 @@ err_t httpd_init(void)
 	-Added by Laurent Chevalier 2017_10_02 */
 
 	/* Connect the PCB to remote host. */
-	err = tcp_connect(pcb, &dest,9981,callback_Connected);
+	err = tcp_connect(pcb, &dest,9996,callback_Connected);
 
 	if (err != ERR_OK) {
-		printf("E: tcp_connect %x\n\r", err);
+		//printf("E: tcp_connect %x\n\r", err);
 		return err;
 
 	}
 	return ERR_OK;
+	
+	
 }
 
 

@@ -374,6 +374,50 @@ static inline void tcm_disable(void)
 
 void board_init(void)
 {
+/************************************************************************/
+/* UART-USART                                                           */
+/************************************************************************/
+#ifndef BOARD_ID_USART
+ioport_set_pin_peripheral_mode(USART0_TXD_GPIO, USART0_TXD_FLAGS); //USART0 TXD0
+ioport_set_pin_peripheral_mode(USART0_RXD_GPIO, USART0_RXD_FLAGS); //USART0 RXD0
+#endif
+
+#ifndef BOARD_ID_USART
+ioport_set_pin_peripheral_mode(PIO_PB4_IDX, IOPORT_MODE_MUX_D); //USART1 TXD1
+ioport_set_pin_peripheral_mode(PIO_PA21_IDX, IOPORT_MODE_MUX_A); //USART1 RXD1
+#endif
+
+#ifndef BOARD_ID_USART
+ioport_set_pin_peripheral_mode(PIO_PD16_IDX, IOPORT_MODE_MUX_B); //USART2 TXD2
+ioport_set_pin_peripheral_mode(PIO_PD15_IDX, IOPORT_MODE_MUX_B); //USART1 RXD2
+#endif
+
+#ifndef BOARD_ID_UART
+ioport_set_pin_peripheral_mode(PIO_PA10_IDX, IOPORT_MODE_MUX_A); // UTXD0
+ioport_set_pin_peripheral_mode(PIO_PA9_IDX, IOPORT_MODE_MUX_A); // URXD0
+#endif
+
+#ifndef BOARD_ID_UART
+ioport_set_pin_peripheral_mode(PIO_PA6_IDX, IOPORT_MODE_MUX_C); // UTXD1
+ioport_set_pin_peripheral_mode(PIO_PA5_IDX, IOPORT_MODE_MUX_C); // URXD1
+#endif
+
+#ifndef BOARD_ID_UART
+ioport_set_pin_peripheral_mode(PIO_PD26_IDX, IOPORT_MODE_MUX_C); // UTXD2
+ioport_set_pin_peripheral_mode(PIO_PD25_IDX, IOPORT_MODE_MUX_C); // URXD2
+#endif
+
+#ifndef BOARD_ID_UART
+ioport_set_pin_peripheral_mode(PIO_PD30_IDX, IOPORT_MODE_MUX_A); // UTXD3
+ioport_set_pin_peripheral_mode(PIO_PD28_IDX, IOPORT_MODE_MUX_A); // URXD3
+#endif
+
+#ifndef BOARD_ID_UART
+ioport_set_pin_peripheral_mode(PIO_PD19_IDX, IOPORT_MODE_MUX_C); // UTXD4
+ioport_set_pin_peripheral_mode(PIO_PD18_IDX, IOPORT_MODE_MUX_C); // UTXD4
+#endif
+
+	
 #ifndef CONF_BOARD_KEEP_WATCHDOG_AT_INIT
 	/* Disable the watchdog */
 	WDT->WDT_MR = WDT_MR_WDDIS;

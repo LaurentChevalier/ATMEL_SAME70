@@ -801,6 +801,17 @@ static inline void gmac_set_rx_bufsize(Gmac* p_gmac, uint32_t ul_code)
 }
 
 /**
+ * \Receiver Packet Buffer Memory Size Select.
+ *
+ * \param p_gmac   Pointer to the GMAC instance.
+ * \param ul_addr   Rx buffer.
+ */
+static inline void gmac_set_Buffer_Memory_Size_Select(Gmac* p_gmac, uint32_t ul_code)
+{
+	p_gmac->GMAC_DCFGR = (p_gmac->GMAC_DCFGR & ~GMAC_DCFGR_RXBMS_Msk)
+			| GMAC_DCFGR_RXBMS(ul_code);
+}
+/**
  * \brief Get Rx Queue Address.
  *
  * \param p_gmac   Pointer to the GMAC instance.

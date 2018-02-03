@@ -100,12 +100,13 @@ typedef uintptr_t          mem_ptr_t;
 #define LWIP_PROVIDE_ERRNO
 
 /* Debug facilities. LWIP_DEBUG must be defined to read output */
-#ifdef LWIP_DEBUG
+//#ifdef LWIP_DEBUG
+#define LWIP_DEBUG
 #define LWIP_PLATFORM_DIAG(x)   {printf x;}
 #define LWIP_PLATFORM_ASSERT(x) {printf("Assertion \"%s\" failed at line %d in %s\n", x, __LINE__, __FILE__); while(1);}
-#else
-#define LWIP_PLATFORM_DIAG(x)   {;}
-#define LWIP_PLATFORM_ASSERT(x) {while (1);}
-#endif
+//#else
+//#define LWIP_PLATFORM_DIAG(x)   {;}
+//#define LWIP_PLATFORM_ASSERT(x) {while (1);}
+//#endif
 
 #endif /* CC_H_INCLUDED */
